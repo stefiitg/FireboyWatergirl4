@@ -229,7 +229,8 @@ jobs:
             libudev-dev \
             libopenal-dev \
             libvorbis-dev \
-            libogg-dev
+            libogg-dev \
+            libflac-dev
 
       - name: Configure CMake
         uses: ./.github/actions/configure-cmake
