@@ -49,6 +49,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SFML)
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Fix OpenGL dependency issues for SFML on Windows, macOS and Linux
+# ---------------------------------------------------------------------------
+# Some systems (especially macOS and Windows CI) need OpenGL to be found explicitly
+if(NOT TARGET OpenGL::GL)
+    find_package(OpenGL REQUIRED)
+endif()
+# ---------------------------------------------------------------------------
 
 ###############################################################################
 
@@ -83,7 +91,19 @@ set_compiler_flags(RUN_SANITIZERS TRUE TARGET_NAMES ${MAIN_EXECUTABLE_NAME})
 # ---------------------------------------------------------------------------
 # Added by me: link SFML targets
 # ---------------------------------------------------------------------------
-target_link_libraries(${MAIN_EXECUTABLE_NAME} sfml-graphics sfml-window sfml-system)
+target_link_libraries(${MAIN_EXECUTABLE_NAME} PRIVATE sfml-graphics sfml-window sfml-system)
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Link OpenGL manually depending on the platform
+# ---------------------------------------------------------------------------
+if(WIN32)
+    target_link_libraries(${MAIN_EXECUTABLE_NAME} PRIVATE opengl32)
+elseif(APPLE)
+    target_link_libraries(${MAIN_EXECUTABLE_NAME} PRIVATE "-framework OpenGL")
+elseif(UNIX)
+    target_link_libraries(${MAIN_EXECUTABLE_NAME} PRIVATE GL)
+endif()
 # ---------------------------------------------------------------------------
 
 ###############################################################################
