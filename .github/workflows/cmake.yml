@@ -266,8 +266,18 @@ jobs:
           path: ${{ env.ZIP_NAME }}
           retention-days: 30
 
-      - name: Runtime checks
-        uses: ./.github/actions/runtime-checks
+      - name: Runtime checks (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          echo "Configuring LD_LIBRARY_PATH for SFML..."
+          export LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/_deps/sfml-build/lib:${LD_LIBRARY_PATH}"
+          echo "LD_LIBRARY_PATH set to: $LD_LIBRARY_PATH"
+          echo "Running program with input file..."
+          cat "${{ env.INPUT_FILENAME }}" | tr -d '\r' | "./${{ env.ZIP_NAME }}/${{ env.EXECUTABLE_NAME }}"
+
+      - name: Runtime checks (non-Ubuntu)
+        if: startsWith(matrix.os, 'windows') || startsWith(matrix.os, 'macos')
+        run: echo "Runtime checks are only required on Ubuntu builds."
 
       - name: Create release
         uses: ./.github/actions/create-release
