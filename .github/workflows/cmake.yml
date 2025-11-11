@@ -225,7 +225,8 @@ jobs:
             libxrandr-dev \
             libxi-dev \
             libxinerama-dev \
-            libxcursor-dev
+            libxcursor-dev \
+            libudev-dev
 
       - name: Configure CMake
         uses: ./.github/actions/configure-cmake
