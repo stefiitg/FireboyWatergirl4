@@ -5,7 +5,6 @@ cmake_minimum_required(VERSION 3.26)
 set(MAIN_PROJECT_NAME "oop")
 set(MAIN_EXECUTABLE_NAME "${MAIN_PROJECT_NAME}")
 
-
 project(${MAIN_PROJECT_NAME})
 # set(CMAKE_PROJECT_VERSION_MAJOR 0)
 # set(CMAKE_PROJECT_VERSION_MINOR 0)
@@ -22,11 +21,11 @@ include(cmake/CopyHelper.cmake)
 ###############################################################################
 
 # external dependencies with FetchContent
-# include(FetchContent)
-#
-# set(FETCHCONTENT_QUIET OFF)
-# set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
-#
+include(FetchContent)
+
+set(FETCHCONTENT_QUIET OFF)
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+
 # NOTE: Also update env vars used for caching in
 #         - .github/actions/configure-cmake/action.yml
 #         - .github/workflows/cmake.yml
@@ -39,17 +38,31 @@ include(cmake/CopyHelper.cmake)
 #
 # FetchContent_MakeAvailable(SomeLib)
 
+# ---------------------------------------------------------------------------
+# Added by me: FetchContent for SFML 2.6.1
+# ---------------------------------------------------------------------------
+FetchContent_Declare(
+        SFML
+        GIT_REPOSITORY https://github.com/SFML/SFML.git
+        GIT_TAG        2.6.1
+        GIT_SHALLOW    1
+)
+FetchContent_MakeAvailable(SFML)
+# ---------------------------------------------------------------------------
+
 ###############################################################################
 
 # external dependencies with find_package
 
 # find_package(Threads REQUIRED)
+# find_package(SFML 2.6 COMPONENTS system window graphics network audio REQUIRED)
+# NOTE: We use FetchContent instead of find_package, so the line above is optional/commented.
 
 ###############################################################################
 
 # NOTE: update executable name in .github/workflows/cmake.yml:25 when changing name here
 add_executable(${MAIN_EXECUTABLE_NAME}
-    main.cpp
+        main.cpp
 )
 
 # NOTE: Add all defined targets (e.g. executables, libraries, etc. )
@@ -66,6 +79,12 @@ set_compiler_flags(RUN_SANITIZERS TRUE TARGET_NAMES ${MAIN_EXECUTABLE_NAME})
 # target_include_directories(${MAIN_EXECUTABLE_NAME} SYSTEM PRIVATE ${<SomeLib>_SOURCE_DIR}/include)
 # target_link_directories(${MAIN_EXECUTABLE_NAME} PRIVATE ${<SomeLib>_BINARY_DIR}/lib)
 # target_link_libraries(${MAIN_EXECUTABLE_NAME} <SomeLib>)
+
+# ---------------------------------------------------------------------------
+# Added by me: link SFML targets
+# ---------------------------------------------------------------------------
+target_link_libraries(${MAIN_EXECUTABLE_NAME} sfml-graphics sfml-window sfml-system)
+# ---------------------------------------------------------------------------
 
 ###############################################################################
 
