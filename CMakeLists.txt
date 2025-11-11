@@ -87,6 +87,13 @@ target_link_libraries(${MAIN_EXECUTABLE_NAME} sfml-graphics sfml-window sfml-sys
 # ---------------------------------------------------------------------------
 
 ###############################################################################
+# Copy SFML DLLs and other runtime dependencies automatically after build
+add_custom_command(TARGET ${MAIN_EXECUTABLE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${SFML_BINARY_DIR}/lib"
+        "$<TARGET_FILE_DIR:${MAIN_EXECUTABLE_NAME}>"
+        COMMENT "Copying SFML DLLs from ${SFML_BINARY_DIR}/lib to output directory"
+)
 
 # copy binaries to "bin" folder; these are uploaded as artifacts on each release
 # DESTINATION_DIR is set as "bin" in cmake/Options.cmake:6
