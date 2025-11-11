@@ -226,7 +226,8 @@ jobs:
             libxi-dev \
             libxinerama-dev \
             libxcursor-dev \
-            libudev-dev
+            libudev-dev \
+            libopenal-dev
 
       - name: Configure CMake
         uses: ./.github/actions/configure-cmake
