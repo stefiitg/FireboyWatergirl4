@@ -100,7 +100,7 @@ jobs:
       # https://github.com/brechtsanders/winlibs_mingw/releases/
       MINGW_VER: "13.3.0posix-11.0.1-msvcrt-r1/winlibs-x86_64-posix-seh-gcc-13.3.0-mingw-w64msvcrt-11.0.1-r1.7z"
       # Example:
-      # MINGW_VER: "13.3.0posix-11.0.1-ucrt-r1/winlibs-x86_64-posix-seh-gcc-13.3.0-mingw-w64ucrt-11.0.1-r1.7z"
+      # MINGW_VER: "13.3.0posix-11.0.1-ucrt-r1/winlibs-x86_64-posix-seh-gcc-13.3.0-windows"
       # MINGW_VER: "14.1.0posix-18.1.7-12.0.0-ucrt-r2/winlibs-x86_64-posix-seh-gcc-14.1.0-mingw-w64ucrt-12.0.0-r2.7z"
       # MINGW_VER: "14.1.0posix-18.1.7-12.0.0-msvcrt-r2/winlibs-x86_64-posix-seh-gcc-14.1.0-mingw-w64msvcrt-12.0.0-r2.7z"
 
@@ -109,7 +109,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-            # renovate: depName=ubuntu
+          # renovate: depName=ubuntu
           - os: ubuntu-22.04
             c: clang-18
             cxx: clang++-18
@@ -213,6 +213,19 @@ jobs:
 
       - name: Install packages
         uses: ./.github/actions/install-packages
+
+      - name: Install OpenGL & X11 dependencies (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            mesa-common-dev \
+            libglu1-mesa-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libxinerama-dev \
+            libxcursor-dev
 
       - name: Configure CMake
         uses: ./.github/actions/configure-cmake
