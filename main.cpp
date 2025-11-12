@@ -1,14 +1,24 @@
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#if defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable : 4996) // MSVC: disable warnings for deprecated funcs
+#endif
 #include <SFML/Graphics.hpp>
-#pragma clang diagnostic pop
 #include <iostream>
 #include <vector>
 #include <string>
 #include <random>
 #include <sstream>
 #include <cassert>
+
+#if defined(__clang__)
+    #pragma clang diagnostic pop
+#elif defined(_MSC_VER)
+    #pragma warning(pop)
+#endif
 
 using std::string;
 using std::vector;
