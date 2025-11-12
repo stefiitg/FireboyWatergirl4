@@ -466,118 +466,89 @@ private:
     sf::Font font;
     sf::Text winText;
 
+    bool headless = false; // true dacă nu putem deschide fereastra (CI Linux)
+
     // private helpers
     void processInput(float dt) {
-        // Fireboy controls: A D W
-        if (!won) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) fireboy.moveLeft(dt);
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) fireboy.moveRight(dt);
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) fireboy.jump();
+        if (headless || won) return;
 
-            // Watergirl controls: Left Right Up (arrows)
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::F)) watergirl.moveLeft(dt);
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::H)) watergirl.moveRight(dt);
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::T)) watergirl.jump();
-        }
+        // Fireboy controls: A D W
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) fireboy.moveLeft(dt);
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) fireboy.moveRight(dt);
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) fireboy.jump();
+
+        // Watergirl controls: F H T
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::F)) watergirl.moveLeft(dt);
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::H)) watergirl.moveRight(dt);
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::T)) watergirl.jump();
     }
 
-    // collision handling with tiles: simple AABB sampling tiles around character
+    // collision handling with tiles
     void handleCollisions(Character& ch, const sf::Vector2f& respawnPos, bool& reachedExitForCharacter, TileType whatExit) {
         (void) whatExit;
         sf::FloatRect cb = ch.bounds();
-        // sample nearby tiles (grid cells overlapping bounds)
-        int leftCol = static_cast<int>(cb.left / Tile::getSize());
-        int rightCol = static_cast<int>((cb.left + cb.width) / Tile::getSize());
-        int topRow = static_cast<int>(cb.top / Tile::getSize());
-        int bottomRow = static_cast<int>((cb.top + cb.height) / Tile::getSize());
+        int leftCol = std::max(0, static_cast<int>(cb.left / Tile::getSize()));
+        int rightCol = std::min(map.getWidth()-1, static_cast<int>((cb.left + cb.width) / Tile::getSize()));
+        int topRow = std::max(0, static_cast<int>(cb.top / Tile::getSize()));
+        int bottomRow = std::min(map.getHeight()-1, static_cast<int>((cb.top + cb.height) / Tile::getSize()));
 
-        // clamp to map bounds
-        leftCol = std::max(leftCol, 0);
-        rightCol = std::min(rightCol, map.getWidth()-1);
-        topRow = std::max(topRow, 0);
-        bottomRow = std::min(bottomRow, map.getHeight()-1);
-//haha
-        // detect if standing on solid: if any tile directly below intersects
-       // bool onSolid = false;
         for (int r = topRow; r <= bottomRow; ++r) {
             for (int c = leftCol; c <= rightCol; ++c) {
                 TileType tt = map.getTileTypeAtGrid(c, r);
                 if (tt == TileType::Solid) {
-                    // compute tile bounds
                     sf::FloatRect tileRect(c * Tile::getSize(), r * Tile::getSize(), Tile::getSize(), Tile::getSize());
                     if (intersects(cb, tileRect)) {
-                        // if intersecting vertically, push character above the tile
-                        // simple resolution: if center of character is above center of tile -> put on top
-                        float charCenterY = cb.top + cb.height * 0.5f;
-                        float tileCenterY = tileRect.top + tileRect.height * 0.5f;
+                        float charCenterY = cb.top + cb.height*0.5f;
+                        float tileCenterY = tileRect.top + tileRect.height*0.5f;
                         ch.setOnGround(true);
                         if (charCenterY < tileCenterY) {
-                            // place character on top
                             ch.setPosition({cb.left, tileRect.top - cb.height});
                         } else {
-                            // push below (rare)
                             ch.setPosition({cb.left, tileRect.top + tileRect.height});
                         }
-                     //   onSolid = true;
                     }
                 }
-                // check hazardous tiles
-                if (tt == TileType::Fire) {
-                    // If character is Watergirl -> damage
-                    if (ch.getName() == "Watergirl") {
-                        ch.takeDamageAndRespawn(respawnPos);
-                        reachedExitForCharacter = false;
-                        return;
-                    }
-                } else if (tt == TileType::Water) {
-                    if (ch.getName() == "Fireboy") {
-                        ch.takeDamageAndRespawn(respawnPos);
-                        reachedExitForCharacter = false;
-                        return;
-                    }
+                // hazardous tiles
+                if (tt == TileType::Fire && ch.getName() == "Watergirl") {
+                    ch.takeDamageAndRespawn(respawnPos);
+                    reachedExitForCharacter = false;
+                    return;
+                } else if (tt == TileType::Water && ch.getName() == "Fireboy") {
+                    ch.takeDamageAndRespawn(respawnPos);
+                    reachedExitForCharacter = false;
+                    return;
                 } else if (tt == TileType::ExitFire && ch.getName() == "Fireboy") {
-                    // check overlap => at exit
                     sf::FloatRect tileRect(c * Tile::getSize(), r * Tile::getSize(), Tile::getSize(), Tile::getSize());
-                    if (intersects(cb, tileRect)) {
-                        reachedExitForCharacter = true;
-                    }
+                    if (intersects(cb, tileRect)) reachedExitForCharacter = true;
                 } else if (tt == TileType::ExitWater && ch.getName() == "Watergirl") {
                     sf::FloatRect tileRect(c * Tile::getSize(), r * Tile::getSize(), Tile::getSize(), Tile::getSize());
-                    if (intersects(cb, tileRect)) {
-                        reachedExitForCharacter = true;
-                    }
+                    if (intersects(cb, tileRect)) reachedExitForCharacter = true;
                 }
             }
         }
-        // if standing on solid, ensure vertical velocity reset (handled in Character::update by world bottom test, but here we do extra)
-        // nothing more to do here
     }
 
-    // update function that orchestrates characters + collisions
     void update(float dt) {
         if (won) return;
 
         sf::FloatRect world = map.worldBounds();
-        // apply physics
         fireboy.update(dt, world);
         watergirl.update(dt, world);
 
-        // collisions and interactions
         handleCollisions(fireboy, map.respawnWorldPosForFire(), fireboyAtExit, TileType::ExitFire);
         handleCollisions(watergirl, map.respawnWorldPosForWater(), watergirlAtExit, TileType::ExitWater);
 
-        // check win
         if (fireboyAtExit && watergirlAtExit) {
             won = true;
             winText.setString("WIN");
-            // center text
             sf::FloatRect tb = winText.getLocalBounds();
             winText.setOrigin(tb.left + tb.width/2.f, tb.top + tb.height/2.f);
-            winText.setPosition(window.getSize().x/2.f, window.getSize().y/2.f - 20.f);
+            if (!headless) winText.setPosition(window.getSize().x/2.f, window.getSize().y/2.f - 20.f);
         }
     }
 
     void render() {
+        if (headless) return;
         window.clear(sf::Color(40,40,40));
         map.draw(window);
         fireboy.draw(window);
@@ -587,43 +558,33 @@ private:
     }
 
 public:
-    // constructor parametric (loads map, characters)
     Game(int mapW = 14, int mapH = 9)
-     : map(mapW, mapH),
-       fireboy("Fireboy", "Desktop/fireboy.png", {Tile::getSize()*1.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Red),
-       watergirl("Watergirl", "Desktop/watergirl.png", {Tile::getSize()*5.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Blue)
+        : map(mapW, mapH),
+          fireboy("Fireboy", "Desktop/fireboy.png", {Tile::getSize()*1.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Red),
+          watergirl("Watergirl", "Desktop/watergirl.png", {Tile::getSize()*5.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Blue)
     {
-        // === Detect if we're running in headless CI environment ===
-        const char* disp = std::getenv("DISPLAY");
-        bool headless = (disp == nullptr || std::string(disp).empty());
-        if (headless) {
-            cout << "[Info] Headless environment detected (no DISPLAY). SFML window will be skipped.\n";
-        } else {
-            window.create(sf::VideoMode(
-                (unsigned)(mapW * Tile::getSize()),
-                (unsigned)(mapH * Tile::getSize())),
-                "Fireboy & Watergirl"
-            );
+        // detect headless mode (CI Linux)
+        const char* displayEnv = std::getenv("DISPLAY");
+        headless = (displayEnv == nullptr || std::string(displayEnv).empty());
+
+        if (!headless) {
+            window.create(sf::VideoMode((unsigned)(mapW*Tile::getSize()), (unsigned)(mapH*Tile::getSize())), "Fireboy & Watergirl");
         }
 
-        // generate platforms
-        map.generateAscendingPlatforms(/*seed*/ 12345);
+        map.generateAscendingPlatforms(12345);
 
-        // load font
         if (!font.loadFromFile("Desktop/arial.ttf")) {
-            cout << "Warning: font 'Desktop/arial.ttf' not found. Win text may not display correctly.\n";
+            std::cout << "Warning: font not found. Win text may not display correctly.\n";
         }
         winText.setFont(font);
         winText.setCharacterSize(48);
         winText.setFillColor(sf::Color::Yellow);
         winText.setStyle(sf::Text::Bold);
 
-        // ensure fallback visuals
         fireboy.setFallbackAppearance(sf::Color::Red);
         watergirl.setFallbackAppearance(sf::Color::Blue);
     }
 
-    // operator<< for Game (compositional)
     friend std::ostream& operator<<(std::ostream& os, const Game& g) {
         os << "Game state:\n";
         os << "Map: " << g.map.getWidth() << "x" << g.map.getHeight() << "\n";
@@ -633,22 +594,26 @@ public:
         return os;
     }
 
-    // public complex method: run the game loop
     void run() {
         sf::Clock clock;
-        while (window.isOpen()) {
+        while (!headless && window.isOpen() || headless) {
             sf::Event ev;
-            while (window.pollEvent(ev)) {
-                if (ev.type == sf::Event::Closed) window.close();
+            if (!headless) {
+                while (window.pollEvent(ev)) {
+                    if (ev.type == sf::Event::Closed) window.close();
+                }
             }
 
             float dt = clock.restart().asSeconds();
             processInput(dt);
             update(dt);
             render();
+
+            if (headless) break; // single update for CI tests
         }
     }
 };
+
 
 
 int main() {
