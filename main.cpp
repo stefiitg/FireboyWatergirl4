@@ -1,6 +1,8 @@
 
-
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include <SFML/Graphics.hpp>
+#pragma clang diagnostic pop
 #include <iostream>
 #include <vector>
 #include <string>
@@ -114,9 +116,10 @@ public:
 
     // constructor parametric
     Character(const string& nm, const string& texturePath,
-              const sf::Vector2f& pos = {0.f,0.f}, int lifeCount = 3,
-              const sf::Color& fallbackColor = sf::Color::White)
-        : name(nm), position(pos), velocity(0.f, 0.f), lives(lifeCount), onGround(false), usingTexture(false)
+          const sf::Vector2f& pos = {0.f,0.f}, int lifeCount = 3,
+          const sf::Color& fallbackColor = sf::Color::White)
+    : name(nm), usingTexture(false), position(pos), velocity(0.f, 0.f),
+      lives(lifeCount), onGround(false)
     {
         // try load texture (if not found, use fallback rectangle)
         if (!texturePath.empty() && texture.loadFromFile(texturePath)) {
@@ -470,6 +473,7 @@ private:
 
     // collision handling with tiles: simple AABB sampling tiles around character
     void handleCollisions(Character& ch, const sf::Vector2f& respawnPos, bool& reachedExitForCharacter, TileType whatExit) {
+        (void) whatExit;
         sf::FloatRect cb = ch.bounds();
         // sample nearby tiles (grid cells overlapping bounds)
         int leftCol = static_cast<int>(cb.left / Tile::getSize());
@@ -484,7 +488,7 @@ private:
         bottomRow = std::min(bottomRow, map.getHeight()-1);
 
         // detect if standing on solid: if any tile directly below intersects
-        bool onSolid = false;
+       // bool onSolid = false;
         for (int r = topRow; r <= bottomRow; ++r) {
             for (int c = leftCol; c <= rightCol; ++c) {
                 TileType tt = map.getTileTypeAtGrid(c, r);
@@ -504,7 +508,7 @@ private:
                             // push below (rare)
                             ch.setPosition({cb.left, tileRect.top + tileRect.height});
                         }
-                        onSolid = true;
+                     //   onSolid = true;
                     }
                 }
                 // check hazardous tiles
