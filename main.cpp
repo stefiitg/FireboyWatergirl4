@@ -589,17 +589,28 @@ private:
 public:
     // constructor parametric (loads map, characters)
     Game(int mapW = 14, int mapH = 9)
-        : window(sf::VideoMode( (unsigned)(mapW * Tile::getSize()), (unsigned)(mapH * Tile::getSize()) ), "Fireboy & Watergirl"),
-          map(mapW, mapH),
-          fireboy("Fireboy", "Desktop/fireboy.png", {Tile::getSize()*1.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Red),
-          watergirl("Watergirl", "Desktop/watergirl.png", {Tile::getSize()*5.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Blue)
+     : map(mapW, mapH),
+       fireboy("Fireboy", "Desktop/fireboy.png", {Tile::getSize()*1.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Red),
+       watergirl("Watergirl", "Desktop/watergirl.png", {Tile::getSize()*5.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Blue)
     {
+        // === Detect if we're running in headless CI environment ===
+        const char* disp = std::getenv("DISPLAY");
+        bool headless = (disp == nullptr || std::string(disp).empty());
+        if (headless) {
+            cout << "[Info] Headless environment detected (no DISPLAY). SFML window will be skipped.\n";
+        } else {
+            window.create(sf::VideoMode(
+                (unsigned)(mapW * Tile::getSize()),
+                (unsigned)(mapH * Tile::getSize())),
+                "Fireboy & Watergirl"
+            );
+        }
+
         // generate platforms
         map.generateAscendingPlatforms(/*seed*/ 12345);
 
-        // try load font
+        // load font
         if (!font.loadFromFile("Desktop/arial.ttf")) {
-            // fallback: use system default? SFML needs a file; if not found, we still proceed but win text won't show well.
             cout << "Warning: font 'Desktop/arial.ttf' not found. Win text may not display correctly.\n";
         }
         winText.setFont(font);
@@ -607,7 +618,7 @@ public:
         winText.setFillColor(sf::Color::Yellow);
         winText.setStyle(sf::Text::Bold);
 
-        // ensure characters fallback appearance sizing & pos set
+        // ensure fallback visuals
         fireboy.setFallbackAppearance(sf::Color::Red);
         watergirl.setFallbackAppearance(sf::Color::Blue);
     }
