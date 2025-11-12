@@ -563,9 +563,13 @@ public:
           fireboy("Fireboy", "Desktop/fireboy.png", {Tile::getSize()*1.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Red),
           watergirl("Watergirl", "Desktop/watergirl.png", {Tile::getSize()*5.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Blue)
     {
-        // detect headless mode (CI Linux)
+        // detect headless
+#ifdef _WIN32
+        headless = false;
+#else
         const char* displayEnv = std::getenv("DISPLAY");
         headless = (displayEnv == nullptr || std::string(displayEnv).empty());
+#endif
 
         if (!headless) {
             window.create(sf::VideoMode((unsigned)(mapW*Tile::getSize()), (unsigned)(mapH*Tile::getSize())), "Fireboy & Watergirl");
@@ -596,7 +600,7 @@ public:
 
     void run() {
         sf::Clock clock;
-        while (!headless && window.isOpen() || headless) {
+        while ((!headless && window.isOpen())|| headless) {
             sf::Event ev;
             if (!headless) {
                 while (window.pollEvent(ev)) {
