@@ -496,7 +496,7 @@ private:
         rightCol = std::min(rightCol, map.getWidth()-1);
         topRow = std::max(topRow, 0);
         bottomRow = std::min(bottomRow, map.getHeight()-1);
-
+//haha
         // detect if standing on solid: if any tile directly below intersects
        // bool onSolid = false;
         for (int r = topRow; r <= bottomRow; ++r) {
