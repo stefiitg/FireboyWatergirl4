@@ -600,22 +600,26 @@ public:
 
     void run() {
         sf::Clock clock;
-        while ((!headless && window.isOpen())|| headless) {
+        while ((!headless && window.isOpen()) || headless) {
             sf::Event ev;
             if (!headless) {
                 while (window.pollEvent(ev)) {
-                    if (ev.type == sf::Event::Closed) window.close();
+                    if (ev.type == sf::Event::Closed)
+                        window.close();
                 }
             }
 
             float dt = clock.restart().asSeconds();
             processInput(dt);
             update(dt);
-            render();
 
-            if (headless) break; // single update for CI tests
+            if (!headless)
+                render();
+            else
+                break; // ✅ IMPORTANT: oprește bucla în modul headless (CI)
         }
     }
+
 };
 
 
