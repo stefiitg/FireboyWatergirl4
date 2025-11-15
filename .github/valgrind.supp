@@ -1,14 +1,18 @@
 # .github/valgrind.supp
 {
-  libLLVM-leaks
+  libGLX_mesa-calloc-glad
   Memcheck:Leak
-  obj:/usr/lib/x86_64-linux-gnu/libLLVM-*
-  fun:*
-}
-
-{
-  ld-linux-leaks
-  Memcheck:Leak
-  obj:/lib*/ld-*.so*
-  fun:*
+  match-leak-kinds: indirect
+  fun:calloc
+  obj:/usr/lib/x86_64-linux-gnu/libGLX_mesa.so.0.0.0
+  obj:/usr/lib/x86_64-linux-gnu/libGLX_mesa.so.0.0.0
+  obj:/usr/lib/x86_64-linux-gnu/libGLX_mesa.so.0.0.0
+  obj:/usr/lib/x86_64-linux-gnu/libGLX_mesa.so.0.0.0
+  obj:/usr/lib/x86_64-linux-gnu/libGLX_mesa.so.0.0.0
+  obj:/usr/lib/x86_64-linux-gnu/libGLX_mesa.so.0.0.0
+  obj:/usr/lib/x86_64-linux-gnu/libGLX_mesa.so.0.0.0
+  fun:_ZL22glad_glx_has_extensionP9_XDisplayiPKc
+  fun:_ZL24glad_glx_find_extensionsP9_XDisplayi
+  fun:_ZL18gladLoadGLXUserPtrP9_XDisplayiPFPFvvEPvPKcES3_
+  fun:_ZL17gladLoaderLoadGLXP9_XDisplayi
 }
