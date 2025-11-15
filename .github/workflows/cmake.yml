@@ -239,6 +239,18 @@ jobs:
           echo "DISPLAY=$DISPLAY"
           ls -la build/_deps || true
           ls -la build/_deps/sfml-build/lib || true
+      - name: Install symbolizer and setup ASan env (Ubuntu ASan) #diagnostic
+        if: startsWith(matrix.os, 'ubuntu') && matrix.runs_asan
+        run: |
+          sudo apt-get update
+          # instalăm llvm-symbolizer (pachetul poate varia; versiunea 14/18/whatever e ok)
+          sudo apt-get install -y llvm llvm-14 llvm-14-tools || sudo apt-get install -y llvm llvm-tools
+          # verificăm calea
+          which llvm-symbolizer || true
+          # păstrăm în environment pentru toți pașii următori
+          echo "ASAN_SYMBOLIZER_PATH=$(which llvm-symbolizer || true)" >> $GITHUB_ENV
+          # opțiuni ASan: simbolizare, detect leaks, halt_on_error ca să vedem și exit code 1
+          echo "ASAN_OPTIONS=symbolize=1:detect_leaks=1:halt_on_error=1:verbosity=1:exitcode=1" >> $GITHUB_ENV
       - name: Configure CMake
         uses: ./.github/actions/configure-cmake
         with:
