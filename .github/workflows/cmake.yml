@@ -231,7 +231,14 @@ jobs:
           sleep 2
           echo "DISPLAY=:99" >> $GITHUB_ENV
           echo "Xvfb started, DISPLAY set to :99"
-
+      - name: Configure LD_LIBRARY_PATH for SFML (debug)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          echo "Configuring LD_LIBRARY_PATH for SFML..."
+          echo "LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/build/_deps/sfml-build/lib:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+          echo "DISPLAY=$DISPLAY"
+          ls -la build/_deps || true
+          ls -la build/_deps/sfml-build/lib || true
       - name: Configure CMake
         uses: ./.github/actions/configure-cmake
         with:
@@ -256,10 +263,11 @@ jobs:
       - name: Process artifacts
         uses: ./.github/actions/process-artifacts
 
-      - name: Upload Artifacts
+      - name: Upload Artifacts (unique name)
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: ${{ env.ZIP_NAME }}_${{ env.TIMESTAMP }}
+          # facem numele unic per job/run: ZIP_NAME + timestamp + os + job + run_id
+          name: ${{ env.ZIP_NAME }}_${{ env.TIMESTAMP }}_${{ matrix.os }}_${{ github.job }}_${{ github.run_id }}
           include-hidden-files: true
           path: ${{ env.ZIP_NAME }}
           retention-days: 30
