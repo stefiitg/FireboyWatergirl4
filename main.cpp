@@ -560,8 +560,8 @@ private:
 public:
     Game(int mapW = 14, int mapH = 9)
         : map(mapW, mapH),
-          fireboy("Fireboy", "Desktop/fireboy.png", {Tile::getSize()*1.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Red),
-          watergirl("Watergirl", "Desktop/watergirl.png", {Tile::getSize()*5.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Blue)
+          fireboy("Fireboy", "assets/fireboy.jpeg", {Tile::getSize()*1.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Red),
+          watergirl("Watergirl", "assets/watergirl.jpg", {Tile::getSize()*5.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Blue)
     {
         // detect headless - verificăm DOAR dacă suntem în CI SAU nu avem DISPLAY pe Linux
         headless = false;
@@ -592,9 +592,9 @@ public:
         }
         map.generateAscendingPlatforms(12345);
 
-        if (!font.loadFromFile("Desktop/arial.ttf")) {
+       /* if (!font.loadFromFile("Desktop/arial.ttf")) {
             std::cout << "Warning: font not found. Win text may not display correctly.\n";
-        }
+        }*/
         winText.setFont(font);
         winText.setCharacterSize(48);
         winText.setFillColor(sf::Color::Yellow);
