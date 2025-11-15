@@ -1,4 +1,3 @@
-
 #if defined(__clang__)
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -13,6 +12,7 @@
 #include <random>
 #include <sstream>
 #include <cassert>
+#include <algorithm>
 
 #if defined(__clang__)
     #pragma clang diagnostic pop
@@ -145,9 +145,12 @@ public:
         }
     }
 
-    //get on ground state
+    //get on ground state - now also clears vertical velocity when set true
     void setOnGround(bool state) {
-         onGround=state;
+         onGround = state;
+         if (onGround) {
+             velocity.y = 0.f; // stop vertical movement when we consider the character grounded
+         }
     }
     // copy constructor (default is ok but implement explicitly to satisfy assignment)
     Character (const Character& other)
@@ -190,7 +193,7 @@ public:
     int getLives() const { return lives; }
     sf::Vector2f getPosition() const { return position; }
 
-    // bounding box for collisions
+    // expose bounds for collision checks
     sf::FloatRect bounds() const {
         if (usingTexture) return sprite.getGlobalBounds();
         return fallbackShape.getGlobalBounds();
@@ -204,26 +207,35 @@ public:
     }
 
     // A public complex function: update physics, apply gravity, integrate velocity
-    // returns true if something significant changed (for debugging)
+    // We split large dt into smaller sub-steps to avoid tunneling
     bool update(float dt, const sf::FloatRect& worldBounds) {
-        // gravity
-        velocity.y += GRAVITY * dt;
-        // integrate
-        position += velocity * dt;
+        // Sub-stepping: limit step to avoid tunneling when dt is large
+        const float maxStep = 0.02f; // 20ms per sub-step (~50Hz)
+        while (dt > 0.f) {
+            float step = std::min(dt, maxStep);
+            // apply gravity only if not on ground
+            if (!onGround) velocity.y += GRAVITY * step;
+            // integrate
+            position += velocity * step;
 
-        // simple floor collision with world bounds bottom
-        if (position.y + Tile::getSize() > worldBounds.top + worldBounds.height) {
-            position.y = worldBounds.top + worldBounds.height - Tile::getSize();
-            velocity.y = 0.f;
-            onGround = true;
-        } else {
-            onGround = false;
+            // simple floor collision with world bounds bottom
+            if (position.y + Tile::getSize() > worldBounds.top + worldBounds.height) {
+                position.y = worldBounds.top + worldBounds.height - Tile::getSize();
+                velocity.y = 0.f;
+                onGround = true;
+            } else {
+                // if we are moving and not intersecting world bottom, don't force onGround false here;
+                // map collisions will set it appropriately. But to be safe, we set false for this sub-step.
+                onGround = false;
+            }
+
+            // prevent leaving world horizontally
+            if (position.x < worldBounds.left) position.x = worldBounds.left;
+            if (position.x + Tile::getSize() > worldBounds.left + worldBounds.width)
+                position.x = worldBounds.left + worldBounds.width - Tile::getSize();
+
+            dt -= step;
         }
-
-        // prevent leaving world horizontally
-        if (position.x < worldBounds.left) position.x = worldBounds.left;
-        if (position.x + Tile::getSize() > worldBounds.left + worldBounds.width)
-            position.x = worldBounds.left + worldBounds.width - Tile::getSize();
 
         // update visual
         if (usingTexture) sprite.setPosition(position);
@@ -269,6 +281,9 @@ public:
         fallbackShape.setSize({Tile::getSize(), Tile::getSize()});
         fallbackShape.setPosition(position);
     }
+
+    // expose a small helper to zero vertical velocity (used by collision resolver)
+    void stopVerticalMovement() { velocity.y = 0.f; }
 };
 
 // -------------------------------
@@ -367,36 +382,6 @@ public:
         grid[1][width-2] = Tile(TileType::ExitFire, width-2, 1);
         grid[1][1] = Tile(TileType::ExitWater, 1, 1);
     }
-    /*void generateCustomPlatforms() {
-        // Clear entire grid to Empty first
-        for (int r = 0; r < height; ++r)
-            for (int c = 0; c < width; ++c)
-                grid[r][c] = Tile(TileType::Empty, c, r);
-
-        // === PLASEAZĂ MANUAL TILE-URILE SOLID ===
-        // Exemplu: platformă orizontală la baza hărții
-        for (int c = 0; c < width; ++c) {
-            grid[height-1][c] = Tile(TileType::Solid, c, height-1); // Platformă de jos
-        }
-
-        // Platforme verticale sau orizontale la poziții specifice
-        grid[6][3] = Tile(TileType::Solid, 3, 6);
-        grid[6][4] = Tile(TileType::Solid, 4, 6);
-        grid[6][5] = Tile(TileType::Solid, 5, 6);
-
-        grid[4][7] = Tile(TileType::Solid, 7, 4);
-        grid[4][8] = Tile(TileType::Solid, 8, 4);
-        grid[4][9] = Tile(TileType::Solid, 9, 4);
-
-        grid[2][5] = Tile(TileType::Solid, 5, 2);
-        grid[2][6] = Tile(TileType::Solid, 6, 2);
-
-        // === ELEMENTE SPECIALE (păstrează-le sau modifică-le) ===
-        grid[height-2][2] = Tile(TileType::Fire, 2, height-2);
-        grid[height-3][width-3] = Tile(TileType::Water, width-3, height-3);
-        grid[1][width-2] = Tile(TileType::ExitFire, width-2, 1);
-        grid[1][1] = Tile(TileType::ExitWater, 1, 1);
-    }*/
 
     // get tile type at world coords (x,y in pixels) OR by grid coords
     TileType getTileTypeAtGrid(int col, int row) const {
@@ -463,8 +448,7 @@ private:
     bool fireboyAtExit = false;
     bool watergirlAtExit = false;
     bool won = false;
-    sf::Font font;
-    sf::Text winText;
+    // no font/text as requested
 
     bool headless = false; // true dacă nu putem deschide fereastra (CI Linux)
 
@@ -495,20 +479,38 @@ private:
         for (int r = topRow; r <= bottomRow; ++r) {
             for (int c = leftCol; c <= rightCol; ++c) {
                 TileType tt = map.getTileTypeAtGrid(c, r);
-                if (tt == TileType::Solid) {
+
+                // Determine if this tile should act as a solid for THIS character:
+                // - Solid tiles are always solid
+                // - Fire tiles are solid for Fireboy
+                // - Water tiles are solid for Watergirl
+                bool isSolidForThis = false;
+                if (tt == TileType::Solid) isSolidForThis = true;
+                else if (tt == TileType::Fire && ch.getName() == "Fireboy") isSolidForThis = true;
+                else if (tt == TileType::Water && ch.getName() == "Watergirl") isSolidForThis = true;
+
+                if (isSolidForThis) {
                     sf::FloatRect tileRect(c * Tile::getSize(), r * Tile::getSize(), Tile::getSize(), Tile::getSize());
                     if (intersects(cb, tileRect)) {
                         float charCenterY = cb.top + cb.height*0.5f;
                         float tileCenterY = tileRect.top + tileRect.height*0.5f;
+                        // Mark grounded and zero vertical velocity
                         ch.setOnGround(true);
                         if (charCenterY < tileCenterY) {
+                            // landed on top
                             ch.setPosition({cb.left, tileRect.top - cb.height});
                         } else {
+                            // collided from below
                             ch.setPosition({cb.left, tileRect.top + tileRect.height});
+                            // hitting head should also stop upward velocity
+                            ch.stopVerticalMovement();
                         }
+                        // after resolving a solid collision, update cb for subsequent checks
+                        cb = ch.bounds();
                     }
                 }
-                // hazardous tiles
+
+                // Hazardous behavior for opposite element:
                 if (tt == TileType::Fire && ch.getName() == "Watergirl") {
                     ch.takeDamageAndRespawn(respawnPos);
                     reachedExitForCharacter = false;
@@ -517,7 +519,10 @@ private:
                     ch.takeDamageAndRespawn(respawnPos);
                     reachedExitForCharacter = false;
                     return;
-                } else if (tt == TileType::ExitFire && ch.getName() == "Fireboy") {
+                }
+
+                // Exit tiles (non-solid) - check after solid/hazard handling
+                if (tt == TileType::ExitFire && ch.getName() == "Fireboy") {
                     sf::FloatRect tileRect(c * Tile::getSize(), r * Tile::getSize(), Tile::getSize(), Tile::getSize());
                     if (intersects(cb, tileRect)) reachedExitForCharacter = true;
                 } else if (tt == TileType::ExitWater && ch.getName() == "Watergirl") {
@@ -539,11 +544,8 @@ private:
         handleCollisions(watergirl, map.respawnWorldPosForWater(), watergirlAtExit, TileType::ExitWater);
 
         if (fireboyAtExit && watergirlAtExit) {
+            // keep game state as won to stop further updates, but do not display/print anything
             won = true;
-            winText.setString("WIN");
-            sf::FloatRect tb = winText.getLocalBounds();
-            winText.setOrigin(tb.left + tb.width/2.f, tb.top + tb.height/2.f);
-            if (!headless) winText.setPosition(window.getSize().x/2.f, window.getSize().y/2.f - 20.f);
         }
     }
 
@@ -553,7 +555,7 @@ private:
         map.draw(window);
         fireboy.draw(window);
         watergirl.draw(window);
-        if (won) window.draw(winText);
+        // intentionally do not draw any "WIN" text or overlay
         window.display();
     }
 
@@ -592,13 +594,7 @@ public:
         }
         map.generateAscendingPlatforms(12345);
 
-       /* if (!font.loadFromFile("Desktop/arial.ttf")) {
-            std::cout << "Warning: font not found. Win text may not display correctly.\n";
-        }*/
-        winText.setFont(font);
-        winText.setCharacterSize(48);
-        winText.setFillColor(sf::Color::Yellow);
-        winText.setStyle(sf::Text::Bold);
+        // no font/text setup (win messages removed)
 
         fireboy.setFallbackAppearance(sf::Color::Red);
         watergirl.setFallbackAppearance(sf::Color::Blue);
@@ -609,7 +605,7 @@ public:
         os << "Map: " << g.map.getWidth() << "x" << g.map.getHeight() << "\n";
         os << "Fireboy: " << g.fireboy << "\n";
         os << "Watergirl: " << g.watergirl << "\n";
-        os << "Won: " << (g.won ? "true" : "false") << "\n";
+        // intentionally do not print "Won" status to avoid any win message
         return os;
     }
     void run() {
@@ -620,7 +616,7 @@ public:
                 float dt = 0.016f; // ~60 FPS
                 update(dt);
                 if (won) {
-                    std::cout << "Game won in headless mode after " << i << " frames.\n";
+                    // do not print anything about winning; just break out silently
                     break;
                 }
             }
