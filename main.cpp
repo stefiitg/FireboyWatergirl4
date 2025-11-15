@@ -13,6 +13,7 @@
 #include <sstream>
 #include <cassert>
 #include <algorithm>
+#include <memory>
 
 #if defined(__clang__)
     #pragma clang diagnostic pop
@@ -135,9 +136,11 @@ public:
         if (!texturePath.empty() && texture.loadFromFile(texturePath)) {
             usingTexture = true;
             sprite.setTexture(texture);
-            // scale sprite to tile size
-            float factor = Tile::getSize() / texture.getSize().y;
-            sprite.setScale(factor, factor);
+            // scale sprite to tile size if texture height > 0
+            if (texture.getSize().y > 0) {
+                float factor = Tile::getSize() / texture.getSize().y;
+                sprite.setScale(factor, factor);
+            }
             sprite.setPosition(position);
         } else {
             usingTexture = false;
@@ -224,8 +227,7 @@ public:
                 velocity.y = 0.f;
                 onGround = true;
             } else {
-                // if we are moving and not intersecting world bottom, don't force onGround false here;
-                // map collisions will set it appropriately. But to be safe, we set false for this sub-step.
+                // allow collisions to set onGround appropriately later
                 onGround = false;
             }
 
@@ -441,7 +443,8 @@ static bool intersects(const sf::FloatRect& a, const sf::FloatRect& b) {
 // -------------------------------
 class Game {
 private:
-    sf::RenderWindow window;
+    // window is now optional: create only when not headless to avoid SFML allocations in CI
+    std::unique_ptr<sf::RenderWindow> window;
     Map map;
     Character fireboy;
     Character watergirl;
@@ -551,12 +554,13 @@ private:
 
     void render() {
         if (headless) return;
-        window.clear(sf::Color(40,40,40));
-        map.draw(window);
-        fireboy.draw(window);
-        watergirl.draw(window);
+        if (!window) return;
+        window->clear(sf::Color(40,40,40));
+        map.draw(*window);
+        fireboy.draw(*window);
+        watergirl.draw(*window);
         // intentionally do not draw any "WIN" text or overlay
-        window.display();
+        window->display();
     }
 
 public:
@@ -586,12 +590,17 @@ public:
 #endif
 
         if (!headless) {
-            window.create(sf::VideoMode((unsigned)(mapW*Tile::getSize()), (unsigned)(mapH*Tile::getSize())), "Fireboy & Watergirl");
-            if (!window.isOpen()) {
+            // create the window only when running with display
+            window = std::make_unique<sf::RenderWindow>(sf::VideoMode((unsigned)(mapW*Tile::getSize()), (unsigned)(mapH*Tile::getSize())), "Fireboy & Watergirl");
+            if (!window->isOpen()) {
                 std::cout << "Failed to create window, switching to headless mode.\n";
+                window.reset();
                 headless = true;
             }
+        } else {
+            window.reset();
         }
+
         map.generateAscendingPlatforms(12345);
 
         // no font/text setup (win messages removed)
@@ -626,11 +635,11 @@ public:
 
         // Mod normal cu fereastră
         sf::Clock clock;
-        while (window.isOpen()) {
+        while (window && window->isOpen()) {
             sf::Event ev;
-            while (window.pollEvent(ev)) {
+            while (window->pollEvent(ev)) {
                 if (ev.type == sf::Event::Closed)
-                    window.close();
+                    window->close();
             }
 
             float dt = clock.restart().asSeconds();
