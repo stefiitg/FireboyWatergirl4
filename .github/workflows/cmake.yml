@@ -282,7 +282,9 @@ jobs:
           sudo apt-get install -y valgrind
           echo "Running Valgrind..."
           export LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/_deps/sfml-build/lib:${LD_LIBRARY_PATH}"
+          # Use our suppression file to ignore known system/LLVM leaks
           valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --error-exitcode=1 \
+            --suppressions="${GITHUB_WORKSPACE}/.github/valgrind.supp" \
             "./${{ env.ZIP_NAME }}/${{ env.EXECUTABLE_NAME }}" < "${{ env.INPUT_FILENAME }}"
 
       - name: Runtime checks (non-Ubuntu)
