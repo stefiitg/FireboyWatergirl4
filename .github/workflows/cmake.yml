@@ -220,7 +220,17 @@ jobs:
             libopenal-dev \
             libvorbis-dev \
             libogg-dev \
-            libflac-dev
+            libflac-dev \
+            xvfb
+            # ✅ START Xvfb BEFORE running program
+      - name: Start Xvfb (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          echo "Starting Xvfb on display :99..."
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          sleep 2
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          echo "Xvfb started, DISPLAY set to :99"
 
       - name: Configure CMake
         uses: ./.github/actions/configure-cmake
@@ -255,13 +265,25 @@ jobs:
           retention-days: 30
 
       - name: Runtime checks (Ubuntu)
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && !matrix.runs_valgrind
         run: |
+          echo "DISPLAY is set to: $DISPLAY"
           echo "Configuring LD_LIBRARY_PATH for SFML..."
           export LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/_deps/sfml-build/lib:${LD_LIBRARY_PATH}"
           echo "LD_LIBRARY_PATH set to: $LD_LIBRARY_PATH"
           echo "Running program with input file..."
           cat "${{ env.INPUT_FILENAME }}" | tr -d '\r' | "./${{ env.ZIP_NAME }}/${{ env.EXECUTABLE_NAME }}"
+#inainte de modif
+      - name: Valgrind checks (Ubuntu)
+        if: matrix.runs_valgrind
+        run: |
+          echo "DISPLAY is set to: $DISPLAY"
+          echo "Installing Valgrind..."
+          sudo apt-get install -y valgrind
+          echo "Running Valgrind..."
+          export LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/_deps/sfml-build/lib:${LD_LIBRARY_PATH}"
+          valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --error-exitcode=1 \
+            "./${{ env.ZIP_NAME }}/${{ env.EXECUTABLE_NAME }}" < "${{ env.INPUT_FILENAME }}"
 
       - name: Runtime checks (non-Ubuntu)
         if: startsWith(matrix.os, 'windows') || startsWith(matrix.os, 'macos')

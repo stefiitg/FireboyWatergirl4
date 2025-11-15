@@ -563,18 +563,33 @@ public:
           fireboy("Fireboy", "Desktop/fireboy.png", {Tile::getSize()*1.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Red),
           watergirl("Watergirl", "Desktop/watergirl.png", {Tile::getSize()*5.f, Tile::getSize()*(mapH-2.f)}, 3, sf::Color::Blue)
     {
-        // detect headless
-#ifdef _WIN32
+        // detect headless - verificăm DOAR dacă suntem în CI SAU nu avem DISPLAY pe Linux
         headless = false;
-#else
-        const char* displayEnv = std::getenv("DISPLAY");
-        headless = (displayEnv == nullptr || std::string(displayEnv).empty());
+
+        const char* ciEnv = std::getenv("CI");
+        if (ciEnv != nullptr && std::string(ciEnv) == "true") {
+            std::cout << "Detected CI environment, running in headless mode.\n";
+            headless = true;
+        }
+
+#ifndef _WIN32
+        // Pe Linux/macOS verificăm DISPLAY doar dacă nu suntem deja în headless
+        if (!headless) {
+            const char* displayEnv = std::getenv("DISPLAY");
+            if (displayEnv == nullptr || std::string(displayEnv).empty()) {
+                std::cout << "No DISPLAY environment variable, running in headless mode.\n";
+                headless = true;
+            }
+        }
 #endif
 
         if (!headless) {
             window.create(sf::VideoMode((unsigned)(mapW*Tile::getSize()), (unsigned)(mapH*Tile::getSize())), "Fireboy & Watergirl");
+            if (!window.isOpen()) {
+                std::cout << "Failed to create window, switching to headless mode.\n";
+                headless = true;
+            }
         }
-
         map.generateAscendingPlatforms(12345);
 
         if (!font.loadFromFile("Desktop/arial.ttf")) {
@@ -597,26 +612,35 @@ public:
         os << "Won: " << (g.won ? "true" : "false") << "\n";
         return os;
     }
-
     void run() {
-        sf::Clock clock;
-        while ((!headless && window.isOpen()) || headless) {
-            sf::Event ev;
-            if (!headless) {
-                while (window.pollEvent(ev)) {
-                    if (ev.type == sf::Event::Closed)
-                        window.close();
+        if (headless) {
+            std::cout << "Headless mode: running basic simulation...\n";
+            // Rulează doar o iterație de test sau simulare simplă
+            for (int i = 0; i < 100; ++i) {
+                float dt = 0.016f; // ~60 FPS
+                update(dt);
+                if (won) {
+                    std::cout << "Game won in headless mode after " << i << " frames.\n";
+                    break;
                 }
+            }
+            std::cout << "Headless simulation finished.\n";
+            return;
+        }
+
+        // Mod normal cu fereastră
+        sf::Clock clock;
+        while (window.isOpen()) {
+            sf::Event ev;
+            while (window.pollEvent(ev)) {
+                if (ev.type == sf::Event::Closed)
+                    window.close();
             }
 
             float dt = clock.restart().asSeconds();
             processInput(dt);
             update(dt);
-
-            if (!headless)
-                render();
-            else
-                break; // ✅ IMPORTANT: oprește bucla în modul headless (CI)
+            render();
         }
     }
 
